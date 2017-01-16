@@ -133,7 +133,50 @@ testCaseRunViewModel = function() {
 	var vm = this;
 	vm.executeArray = ko.observableArray();
 	vm.isLoadingData = ko.observable(false);
+	vm.selectedExecuteItem = ko.observableArray();
+	vm.selectedVerifyType = ko.observableArray();
 	vm.selectedExecuteResult = ko.observableArray();
+
+	//packageItems(["returnConfig", "databaseConfig", "logConfig"], ["接口返回结果", "数据库查询结果", "Log记录文件"])
+	vm.verifyTypes = ko.computed(function() {
+		vm.selectedExecuteResult([]);
+		var _selectedExecuteItem = (vm.selectedExecuteItem() != undefined && vm.selectedExecuteItem().length == 1) ? vm.selectedExecuteItem()[0] : undefined;
+		if (_selectedExecuteItem == undefined) {
+			return [];
+		} else {
+			var data = [];
+			if (_selectedExecuteItem.returnConfig && _selectedExecuteItem.returnConfig.length > 0) {
+				data.push({
+					id : "returnConfig",
+					value : "接口返回结果"
+				});
+			}
+			if (_selectedExecuteItem.databaseConfig && _selectedExecuteItem.databaseConfig.length > 0) {
+				data.push({
+					id : "databaseConfig",
+					value : "数据库查询结果"
+				});
+			}
+			if (_selectedExecuteItem.logConfig && _selectedExecuteItem.logConfig.length > 0) {
+				data.push({
+					id : "logConfig",
+					value : "Log记录文件"
+				});
+			}
+			return data;
+		}
+	});
+
+	vm.selectedExecuteResults = ko.computed(function() {
+		vm.selectedExecuteResult([]);
+		var _selectedExecuteItem = (vm.selectedExecuteItem() != undefined && vm.selectedExecuteItem().length == 1) ? vm.selectedExecuteItem()[0] : undefined;
+		var _selectedVerifyType = vm.selectedVerifyType() != undefined && vm.selectedVerifyType().length == 1 ? vm.selectedVerifyType()[0] : undefined;
+		if (_selectedExecuteItem == undefined || _selectedVerifyType == undefined) {
+			return [];
+		} else {
+			return eval("_selectedExecuteItem." + _selectedVerifyType.id);
+		}
+	});
 
 	vm.visible = {
 		expectResult : ko.observable(true),
@@ -157,6 +200,17 @@ testCaseRunViewModel = function() {
 		}
 	});
 
+	function packageItems(ids, names) {
+		var items = [];
+		var length = Math.min(ids.length, names.length);
+		for (var plIdx = 0; plIdx < length; plIdx++) {
+			items.push({
+				id : ids[plIdx],
+				value : names[plIdx]
+			});
+		}
+		return items;
+	}
 	function buildJsonTree(executeResult) {
 		if (executeResult.source == "") {
 			executeResult.source = "{}";
@@ -197,7 +251,31 @@ testCaseRunViewModel = function() {
 	testCaseRunViewModel.prototype.currentBlade = ko.observable();
 }
 
-inputAndOutputViewModel = function() {
+testConfigRunViewModel = function() {
+	var vm = this;
+	vm.isLoadingData = ko.observable(false);
+	vm.responseData = ko.observable();
+	var postData = {
+		requestBody : $.gs.io.requestBody(),
+		requestHeaders : $.gs.io.requestHeaders(),
+		requestMethod : $.gs.io.requestMethod(),
+		requestUrl : $.gs.io.requestUrl(),
+	};
+	vm.isLoadingData(true);
+	$.post("./io/run", postData, function(data) {
+		if (data) {
+			vm.responseData(data.message);
+		} else {
+			alert("如果看到此提示，请告知开发人员，谢谢");
+		}
+		vm.isLoadingData(false)
+	});
+
+	testConfigRunViewModel.prototype.vm = vm;
+	//to save current balde
+	testConfigRunViewModel.prototype.currentBlade = ko.observable();
+}
+testConfigDetailsViewModel = function() {
 	var vm = this;
 	vm.isLoadingData = ko.observable(false);
 	vm.isSavingData = ko.observable(false);
@@ -351,6 +429,22 @@ inputAndOutputViewModel = function() {
 				}
 				return this.selectedResultType()[0].value;
 			},
+
+			send : function() {
+				var postData = {
+					requestBody : vm.inArgs.requestBody(),
+					requestHeaders : vm.summary.requestHeaders(),
+					requestMethod : vm.summary.requestMethod(),
+					requestUrl : vm.summary.requestUrl(),
+				};
+				$.post("./io/send", postData, function(data) {
+					if (data) {
+						vm.resultVerify.editConfig().text(data.message);
+					} else {
+						alert("如果看到此提示，请告知开发人员，谢谢");
+					}
+				});
+			},
 			model : function() {
 				this.text = ko.observable();
 				this.get = function() {
@@ -415,6 +509,8 @@ inputAndOutputViewModel = function() {
 				return d;
 			},
 			set : function(cnf) {
+				this.config([]);
+				this.selectedResultType([]);
 				if (cnf) {
 					//Set default Return Type
 					this.selectedResultType.removeAll();
@@ -429,10 +525,6 @@ inputAndOutputViewModel = function() {
 						}
 						this.selectedResultType([vm.resultVerify.findResultType(cnf.resultVerify.returnConfig.returnType)]);
 					}
-				//				vm.resultVerify.returnConfig.config.removeAll();
-				//				var demo = new vm.resultVerify.returnConfig.model();
-				//				demo.text("test");
-				//				vm.resultVerify.returnConfig.config.push(demo);
 				}
 			},
 		},
@@ -474,6 +566,20 @@ inputAndOutputViewModel = function() {
 				}
 			},
 			config : ko.observableArray(),
+			query : function() {
+				var postData = {
+					server : JSON.stringify(this.server()[0]),
+					query : this.query(),
+					database : this.database(),
+				};
+				$.post("./io/query", postData, function(data) {
+					if (data) {
+						vm.resultVerify.editConfig().text(data.message);
+					} else {
+						alert("如果看到此提示，请告知开发人员，谢谢");
+					}
+				});
+			},
 			showConfigLayout : function(data, e) {
 				vm.resultVerify.editConfig(data);
 				vm.showEditLayout(data, e);
@@ -531,6 +637,9 @@ inputAndOutputViewModel = function() {
 				return d;
 			},
 			set : function(cnf) {
+				this.verifyServers([]);
+				this.config([]);
+				this.selectedResultType([]);
 				if (cnf) {
 					//Set default Return Type
 					this.selectedResultType.removeAll();
@@ -555,19 +664,6 @@ inputAndOutputViewModel = function() {
 						this.config(vdbs);
 						this.selectedResultType([vm.resultVerify.findResultType(cnf.resultVerify.databaseConfig.returnType)]);
 					}
-				//				vm.resultVerify.databaseConfig.config.removeAll();
-				//				var demo = new vm.resultVerify.databaseConfig.model();
-				//				demo.database("database0");
-				//				demo.server([vm.resultVerify.databaseConfig.verifyServers()[0]]);
-				//				demo.query("Query0");
-				//				demo.text("text0");
-				//				vm.resultVerify.databaseConfig.config.push(demo);
-				//				demo = new vm.resultVerify.databaseConfig.model();
-				//				demo.database("database");
-				//				demo.server([vm.resultVerify.databaseConfig.verifyServers()[1]]);
-				//				demo.query("Query");
-				//				demo.text("text");
-				//				vm.resultVerify.databaseConfig.config.push(demo);
 				}
 			},
 		},
@@ -591,7 +687,6 @@ inputAndOutputViewModel = function() {
 				//Set default Return Type
 				this.selectedResultType.removeAll();
 				this.selectedResultType.push(vm.resultVerify.resultTypes()[2]);
-
 			},
 		},
 		set : function(cnf) {
@@ -628,9 +723,9 @@ inputAndOutputViewModel = function() {
 	vm.closeEditLayout = function() {
 		vm.editLayoutId("");
 	}
-	inputAndOutputViewModel.prototype.vm = vm;
+	testConfigDetailsViewModel.prototype.vm = vm;
 	//to save current balde
-	inputAndOutputViewModel.prototype.currentBlade = ko.observable();
+	testConfigDetailsViewModel.prototype.currentBlade = ko.observable();
 }
 
 jobScheduleViewModel = function() {
@@ -661,9 +756,9 @@ jobScheduleViewModel = function() {
 		selectWeekOfMonth : ko.observable(theDate.getWeekOfMonth(0)),
 		selectMonth : ko.observable(theDate.getMonth()),
 
-		dayMethod : ko.observable(0),
-		monthMethod : ko.observable(0),
-		yearMethod : ko.observable(0),
+		dayMethod : ko.observable("0"),
+		monthMethod :ko.observable("0"),
+		yearMethod : ko.observable("0"),
 
 		cycleTypes : ko.observableArray(),
 		cycleFinishType : ko.observableArray(),
@@ -827,7 +922,7 @@ jobScheduleViewModel = function() {
 			desc += "重复运行";
 		}
 		if (ce.selectCycleType() == "byDay") {
-			if (ce.dayMethod() == 0) {
+			if (ce.dayMethod() == "0") {
 				desc += "，规则为：每隔 " + ce.during() + " 天运行一次";
 			} else {
 				desc += "，规则为：每个工作日运行一次";
@@ -835,13 +930,13 @@ jobScheduleViewModel = function() {
 		} else if (ce.selectCycleType() == "byWeek") {
 			desc += "，规则为：每隔 1 周的 " + vm.findWeeks() + " 各运行一次";
 		} else if (ce.selectCycleType() == "byMonth") {
-			if (ce.monthMethod() == 0) {
+			if (ce.monthMethod() == "0") {
 				desc += "，规则为：每隔 " + ce.during() + " 个月的第 " + ce.theCount() + " 天运行一次";
 			} else {
 				desc += "，规则为：每隔 " + ce.during() + " 个月的 " + vm.findWeeksOfMonth() + vm.findWeekEx() + " 运行一次";
 			}
 		} else if (ce.selectCycleType() == "byYear") {
-			if (ce.yearMethod() == 0) {
+			if (ce.yearMethod() == "0") {
 				desc += "，规则为：每隔 " + ce.during() + " 年的 " + vm.findMonth() + " 的第 " + ce.theCount() + " 日运行一次";
 			} else {
 				desc += "，规则为：每隔 " + ce.during() + " 年的 " + vm.findMonth() + " 的 " + vm.findWeeksOfMonth() + vm.findWeekEx() + " 运行一次";
@@ -853,4 +948,14 @@ jobScheduleViewModel = function() {
 	jobScheduleViewModel.prototype.vm = vm;
 	//to save current balde
 	jobScheduleViewModel.prototype.currentBlade = ko.observable();
+}
+
+databaseViewModel = function() {
+	var vm = this;
+	vm.isLoadingData = ko.observable(true);
+
+	testInterfaceEditViewModel.prototype.vm = vm;
+	//to save current balde
+	testInterfaceEditViewModel.prototype.currentBlade = ko.observable();
+
 }

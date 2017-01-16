@@ -4,10 +4,12 @@
 		vm.refresh();
 		vm.currentBlade().refresh(vm.refresh)
 	}
-	if(vm.subscribe){
+	if (vm.subscribe) {
 		vm.subscribe();
 	}
-	vm.currentBlade().setBladeCommand(vm.getCommands())
+	if (vm.getCommands) {
+		vm.currentBlade().setBladeCommand(vm.getCommands())
+	}
 };
 testInterfaceListViewModel.prototype.init = function() {
 	var vm = testInterfaceListViewModel.prototype.vm;
@@ -41,11 +43,19 @@ testCaseRunViewModel.prototype.init = function() {
 	var vm = testCaseRunViewModel.prototype.vm;
 	init(vm, "#runTestCase")
 };
-inputAndOutputViewModel.prototype.init = function() {
-	var vm = inputAndOutputViewModel.prototype.vm;
-	init(vm, "#ioParameter")
+testConfigDetailsViewModel.prototype.init = function() {
+	var vm = testConfigDetailsViewModel.prototype.vm;
+	init(vm, "#detailsTestConfig")
+};
+testConfigRunViewModel.prototype.init = function() {
+	var vm = testConfigRunViewModel.prototype.vm;
+	init(vm, "#runTestConfig")
 };
 jobScheduleViewModel.prototype.init = function() {
 	var vm = jobScheduleViewModel.prototype.vm;
 	init(vm, "#jobSchedule")
+};
+databaseViewModel.prototype.init = function() {
+	var vm = databaseViewModel.prototype.vm;
+	init(vm, "#database")
 };
